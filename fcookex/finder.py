@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 import warnings
 from configparser import ConfigParser
 from pathlib import Path
 
-FIREFOX_BASE = Path.home() / ".mozilla" / "firefox"
+
+def _default_firefox_base() -> Path:
+    if sys.platform == "win32":
+        appdata = Path.home() / "AppData" / "Roaming"
+        return appdata / "Mozilla" / "Firefox"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Firefox"
+    return Path.home() / ".mozilla" / "firefox"
+
+
+FIREFOX_BASE = _default_firefox_base()
 
 
 class ProfileNotFoundError(Exception):
