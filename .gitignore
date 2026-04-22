@@ -208,3 +208,6 @@ __marimo__/
 
 #Exported cookies
 export/
+
+# Local archive (issues, PRs, notes — not for version control)
+_archive_/

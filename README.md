@@ -7,7 +7,10 @@ Search Firefox cookies by keyword, interactively pick the ones you want, and exp
 ## Requirements
 
 - Python 3.12+
-- Firefox installed with at least one profile (`~/.mozilla/firefox/`)
+- Firefox installed with at least one profile
+  - Linux: `~/.mozilla/firefox/`
+  - macOS: `~/Library/Application Support/Firefox/`
+  - Windows: `%APPDATA%\Mozilla\Firefox\`
 
 ## Installation
 
