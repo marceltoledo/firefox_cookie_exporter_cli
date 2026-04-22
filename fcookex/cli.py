@@ -68,22 +68,24 @@ def main(
         typer.Option("--output", "-o", help="Output filename (no path). Extension .txt is added if absent."),
     ] = None,
     append: Annotated[bool, typer.Option("--append", "-a", help="Append to existing file instead of overwriting.")] = False,
-    show_values: Annotated[bool, typer.Option("--show-values", help="Reveal cookie values in the selection list.")] = False,
+    all_cookies: Annotated[bool, typer.Option("--all", "-A", help="Export all matching cookies without interactive selection.")] = False,
+    show_values: Annotated[bool, typer.Option("--show-values", help="Reveal cookie values in the interactive selection list (ignored with --all).")] = False,
 ) -> None:
     # --- Validate --output before doing any work ---
     if output is not None:
         _validate_output_name(output)
 
-    # --- Value visibility warning / confirmation ---
-    if show_values:
-        confirmed = typer.confirm(
-            "Warning: cookie values will be visible in your terminal. Continue?",
-            default=False,
-        )
-        if not confirmed:
-            raise typer.Exit()
-    else:
-        rprint("[yellow]Cookie values are masked. Pass --show-values to reveal them.[/yellow]")
+    # --- Value visibility warning / confirmation (interactive mode only) ---
+    if not all_cookies:
+        if show_values:
+            confirmed = typer.confirm(
+                "Warning: cookie values will be visible in your terminal. Continue?",
+                default=False,
+            )
+            if not confirmed:
+                raise typer.Exit()
+        else:
+            rprint("[yellow]Cookie values are masked. Pass --show-values to reveal them.[/yellow]")
 
     # --- Locate and copy the cookie database ---
     try:
@@ -104,33 +106,37 @@ def main(
         rprint(f"[yellow]No cookies found matching {search!r}.[/yellow]")
         raise typer.Exit()
 
-    # --- Build display list (masked or plain) ---
-    masked_cookies = _mask_cookies(cookies)
-    display_cookies = masked_cookies if not show_values else cookies
-
-    choices = [
-        {
-            "name": f"{c.host:<45} {c.name:<35} {c.value}",
-            "value": c,
-        }
-        for c in display_cookies
-    ]
-
-    selected_display: list[reader.Cookie] = inquirer.checkbox(
-        message=f"Select cookies to export ({len(cookies)} found). Space = toggle, Enter = confirm:",
-        choices=choices,
-        instruction="(space: toggle, enter: confirm)",
-    ).execute()
-
-    if not selected_display:
-        rprint("[yellow]No cookies selected. Nothing exported.[/yellow]")
-        raise typer.Exit()
-
-    # --- Recover real values from selected display cookies ---
-    if show_values:
-        selected_real = selected_display
+    # --- Non-interactive: export all results directly ---
+    if all_cookies:
+        selected_real = cookies
     else:
-        selected_real = _resolve_real(selected_display, masked_cookies, cookies)
+        # --- Build display list (masked or plain) ---
+        masked_cookies = _mask_cookies(cookies)
+        display_cookies = masked_cookies if not show_values else cookies
+
+        choices = [
+            {
+                "name": f"{c.host:<45} {c.name:<35} {c.value}",
+                "value": c,
+            }
+            for c in display_cookies
+        ]
+
+        selected_display: list[reader.Cookie] = inquirer.checkbox(
+            message=f"Select cookies to export ({len(cookies)} found). Space = toggle, Enter = confirm:",
+            choices=choices,
+            instruction="(space: toggle, enter: confirm)",
+        ).execute()
+
+        if not selected_display:
+            rprint("[yellow]No cookies selected. Nothing exported.[/yellow]")
+            raise typer.Exit()
+
+        # --- Recover real values from selected display cookies ---
+        if show_values:
+            selected_real = selected_display
+        else:
+            selected_real = _resolve_real(selected_display, masked_cookies, cookies)
 
     # --- Export ---
     out_path = exporter.export(
