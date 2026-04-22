@@ -1,6 +1,6 @@
 # fcookex — Firefox Cookie Exporter CLI
 
-Search Firefox cookies by keyword, interactively pick the ones you want, and export them as a [Netscape HTTP Cookie File](https://curl.se/docs/http-cookies.html) — the format accepted by curl, yt-dlp, wget, and most download tools.
+Search Firefox cookies by keyword, export all matching cookies in one shot or interactively pick the ones you want, and save them as a [Netscape HTTP Cookie File](https://curl.se/docs/http-cookies.html) — the format accepted by curl, yt-dlp, wget, and most download tools.
 
 ---
 
@@ -42,6 +42,7 @@ fcookex --search <keyword>
         [--profile <name>]
         [--output <filename>]
         [--append]
+        [--all]
         [--show-values]
 ```
 
@@ -53,9 +54,10 @@ fcookex --search <keyword>
 | `--profile` | `-p` | default profile | Firefox profile name to read from |
 | `--output` | `-o` | `cookies_<ISO8601>.txt` | Output filename (no path, `.txt` added if absent) |
 | `--append` | `-a` | off | Append to an existing file instead of overwriting |
-| `--show-values` | — | off | Reveal cookie values in the selection list |
+| `--all` | `-A` | off | Export **all** matching cookies without the interactive selection prompt |
+| `--show-values` | — | off | Reveal cookie values in the interactive selection list (ignored with `--all`) |
 
-### Interactive selection
+### Interactive selection (without `--all`)
 
 After the search runs, a checkbox list is shown. Use the keyboard to select cookies:
 
@@ -71,7 +73,14 @@ Cookie values are masked as `***` by default. Pass `--show-values` to reveal the
 
 ## Examples
 
-**Search and export cookies for a domain using the default profile:**
+**Export all cookies for a domain in one shot (no interactive prompt):**
+
+```bash
+fcookex --search youtube.com --all --output youtube-cookies
+# Writes all matching cookies to export/youtube-cookies.txt
+```
+
+**Search and export cookies for a domain using the default profile (interactive):**
 
 ```bash
 fcookex --search youtube.com
@@ -96,7 +105,7 @@ fcookex --search example.com --output my_session
 fcookex --search api.example.com --output saved --append
 ```
 
-**Reveal cookie values during selection:**
+**Reveal cookie values during interactive selection:**
 
 ```bash
 fcookex --search example.com --show-values
@@ -135,6 +144,7 @@ yt-dlp --cookies export/cookies_20260418T153000Z.txt https://example.com/video
 
 - **Firefox must be closed** (or at least the target profile not in use) for a consistent read. The tool warns if a lock file is detected but proceeds with a copy of the database.
 - `--output` accepts a bare filename only. Paths containing `/` or `..` are rejected to prevent accidental writes outside the `export/` directory.
+- `--all` skips the interactive checkbox entirely — every cookie matched by `--search` is written to the output file. Combine with `--output` to give the file a predictable name.
 - In `--append` mode, the Netscape header is written only once (skipped if the file already has content), keeping the file valid for consumers.
 
 ---
