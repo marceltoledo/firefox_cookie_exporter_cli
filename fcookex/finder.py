@@ -12,8 +12,21 @@ from pathlib import Path
 
 def _default_firefox_base() -> Path:
     if sys.platform == "win32":
-        appdata = Path.home() / "AppData" / "Roaming"
-        return appdata / "Mozilla" / "Firefox"
+        # Standard (non-Store) install — always try this first.
+        standard = Path.home() / "AppData" / "Roaming" / "Mozilla" / "Firefox"
+        if standard.exists():
+            return standard
+        # Microsoft Store (MSIX) install — profile is sandboxed under the
+        # package directory with a machine-specific ID suffix, e.g.:
+        # %LOCALAPPDATA%\Packages\Mozilla.Firefox_<id>\LocalCache\Roaming\Mozilla\Firefox
+        packages = Path.home() / "AppData" / "Local" / "Packages"
+        matches = sorted(
+            packages.glob("Mozilla.Firefox_*/LocalCache/Roaming/Mozilla/Firefox")
+        )
+        if matches:
+            return matches[0]
+        # Neither path exists yet; return standard so error messages are useful.
+        return standard
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / "Firefox"
     return Path.home() / ".mozilla" / "firefox"
