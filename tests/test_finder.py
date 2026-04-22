@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 
 from fcookex.finder import (
     ProfileNotFoundError,
+    _default_firefox_base,
     copy_to_temp,
     get_profile_db,
     list_profiles,
@@ -154,3 +156,50 @@ def test_copy_to_temp_warns_when_lock_present(tmp_path):
     with pytest.warns(UserWarning, match="Firefox appears to be running"):
         copy = copy_to_temp(db)
     copy.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# _default_firefox_base — platform path structure
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific path check")
+def test_default_firefox_base_windows():
+    base = _default_firefox_base()
+    parts = base.parts
+    assert "AppData" in parts
+    assert "Roaming" in parts
+    assert "Mozilla" in parts
+    assert "Firefox" in parts
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific path check")
+def test_default_firefox_base_macos():
+    base = _default_firefox_base()
+    assert "Library" in base.parts
+    assert "Application Support" in base.parts
+    assert "Firefox" in base.parts
+
+
+@pytest.mark.skipif(sys.platform == "win32" or sys.platform == "darwin",
+                    reason="Linux-specific path check")
+def test_default_firefox_base_linux():
+    base = _default_firefox_base()
+    assert ".mozilla" in base.parts
+    assert "firefox" in base.parts
+
+
+# ---------------------------------------------------------------------------
+# ProfileNotFoundError message — actionable guidance
+# ---------------------------------------------------------------------------
+
+
+def test_profiles_ini_missing_error_is_actionable(tmp_path, monkeypatch):
+    monkeypatch.setattr("fcookex.finder.FIREFOX_BASE", tmp_path)
+
+    with pytest.raises(ProfileNotFoundError) as exc_info:
+        get_profile_db(None)
+
+    message = str(exc_info.value)
+    assert str(tmp_path) in message
+    assert "not installed" in message or "never been opened" in message or "close Firefox" in message

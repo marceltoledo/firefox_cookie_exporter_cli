@@ -62,7 +62,11 @@ def _get_default_profile() -> Path:
     ini_path = FIREFOX_BASE / "profiles.ini"
     if not ini_path.exists():
         raise ProfileNotFoundError(
-            f"Firefox profiles.ini not found at {FIREFOX_BASE}"
+            f"Firefox profiles.ini not found at {FIREFOX_BASE}\n"
+            "Possible causes:\n"
+            "  1. Firefox is not installed on this system.\n"
+            "  2. Firefox has never been opened — launch it once to create the profile.\n"
+            "  3. Firefox is open and has locked the profile — close Firefox and retry."
         )
 
     config = ConfigParser()
