@@ -173,6 +173,22 @@ def test_default_firefox_base_windows():
     assert "Firefox" in parts
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows Store path fallback")
+def test_default_firefox_base_windows_store_fallback(tmp_path, monkeypatch):
+    """When the standard path is absent, the Store sandbox path is returned."""
+    # Build a fake Store package tree under tmp_path/AppData/Local/Packages/Mozilla.Firefox_abc123/...
+    store_base = (
+        tmp_path / "AppData" / "Local" / "Packages" / "Mozilla.Firefox_abc123"
+        / "LocalCache" / "Roaming" / "Mozilla" / "Firefox"
+    )
+    store_base.mkdir(parents=True)
+    # Standard path deliberately absent (not created).
+    monkeypatch.setattr("fcookex.finder.Path.home", staticmethod(lambda: tmp_path))
+
+    result = _default_firefox_base()
+    assert result == store_base
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific path check")
 def test_default_firefox_base_macos():
     base = _default_firefox_base()
@@ -181,8 +197,10 @@ def test_default_firefox_base_macos():
     assert "Firefox" in base.parts
 
 
-@pytest.mark.skipif(sys.platform == "win32" or sys.platform == "darwin",
-                    reason="Linux-specific path check")
+@pytest.mark.skipif(
+    sys.platform in ("win32", "darwin"),
+    reason="Linux-specific path check",
+)
 def test_default_firefox_base_linux():
     base = _default_firefox_base()
     assert ".mozilla" in base.parts
