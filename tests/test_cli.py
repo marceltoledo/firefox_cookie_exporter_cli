@@ -60,6 +60,7 @@ _YOUTUBE_COOKIES = [
     (".youtube.com", "SID", "sid_value", "/", 9999999999, 1, 1, 0),
     (".youtube.com", "HSID", "hsid_value", "/", 9999999999, 1, 1, 0),
     (".youtube.com", "LOGIN_INFO", "login_value", "/", 9999999999, 1, 1, 0),
+    (".youtube.com", "PREF", "pref_value", "/", 9999999999, 0, 0, 0),
 ]
 
 
@@ -207,3 +208,72 @@ def test_without_all_flag_shows_masked_notice(tmp_path, monkeypatch):
         result = runner.invoke(app, ["--search", "youtube"])
 
     assert "Cookie values are masked" in result.output
+
+
+# ---------------------------------------------------------------------------
+# --names filter tests
+# ---------------------------------------------------------------------------
+
+
+def test_names_filter_keeps_only_named_cookies(tmp_path, monkeypatch):
+    """--names keeps only cookies whose name is in the comma-separated list."""
+    monkeypatch.setattr("fcookex.finder.FIREFOX_BASE", tmp_path)
+    _make_profile_tree(tmp_path, _YOUTUBE_COOKIES)
+
+    export_dir = tmp_path / "export"
+    monkeypatch.setattr("fcookex.cli._EXPORT_DIR", export_dir)
+
+    with patch("fcookex.cli.inquirer"):
+        result = runner.invoke(app, ["--search", "youtube", "--all", "--names", "SID,HSID"])
+
+    assert result.exit_code == 0, result.output
+    out_files = list(export_dir.glob("*.txt"))
+    assert len(out_files) == 1
+    content = out_files[0].read_text()
+    assert "SID" in content
+    assert "HSID" in content
+    assert "LOGIN_INFO" not in content
+    assert "PREF" not in content
+
+
+def test_names_filter_no_match_exits_cleanly(tmp_path, monkeypatch):
+    """--names with no matching cookie names exits with a warning and writes no file."""
+    monkeypatch.setattr("fcookex.finder.FIREFOX_BASE", tmp_path)
+    _make_profile_tree(tmp_path, _YOUTUBE_COOKIES)
+
+    export_dir = tmp_path / "export"
+    monkeypatch.setattr("fcookex.cli._EXPORT_DIR", export_dir)
+
+    with patch("fcookex.cli.inquirer"):
+        result = runner.invoke(app, ["--search", "youtube", "--all", "--names", "NONEXISTENT"])
+
+    assert result.exit_code == 0
+    assert "No cookies matched" in result.output
+    assert not export_dir.exists() or list(export_dir.glob("*.txt")) == []
+
+
+def test_names_filter_works_in_interactive_mode(tmp_path, monkeypatch):
+    """--names filters the checkbox choices so only named cookies are offered."""
+    monkeypatch.setattr("fcookex.finder.FIREFOX_BASE", tmp_path)
+    _make_profile_tree(tmp_path, _YOUTUBE_COOKIES)
+
+    export_dir = tmp_path / "export"
+    monkeypatch.setattr("fcookex.cli._EXPORT_DIR", export_dir)
+
+    with patch("fcookex.cli.inquirer") as mock_inquirer:
+        def _fake_checkbox(**kwargs):
+            from unittest.mock import MagicMock
+            choices = kwargs.get("choices", [])
+            m = MagicMock()
+            m.execute.return_value = [choices[0]["value"]] if choices else []
+            return m
+        mock_inquirer.checkbox.side_effect = _fake_checkbox
+        result = runner.invoke(app, ["--search", "youtube", "--names", "LOGIN_INFO"])
+
+    assert result.exit_code == 0, result.output
+    # Only LOGIN_INFO should appear in the exported file
+    out_files = list(export_dir.glob("*.txt"))
+    assert len(out_files) == 1
+    content = out_files[0].read_text()
+    assert "LOGIN_INFO" in content
+    assert "SID" not in content or content.count("SID") == content.count("LOGIN_INFO")

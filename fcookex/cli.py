@@ -70,6 +70,10 @@ def main(
     append: Annotated[bool, typer.Option("--append", "-a", help="Append to existing file instead of overwriting.")] = False,
     all_cookies: Annotated[bool, typer.Option("--all", "-A", help="Export all matching cookies without interactive selection.")] = False,
     show_values: Annotated[bool, typer.Option("--show-values", help="Reveal cookie values in the interactive selection list (ignored with --all).")] = False,
+    names: Annotated[
+        Optional[str],
+        typer.Option("--names", "-n", help="Comma-separated cookie names to keep (e.g. SID,HSID,APISID). Applied after --search."),
+    ] = None,
 ) -> None:
     # --- Validate --output before doing any work ---
     if output is not None:
@@ -105,6 +109,13 @@ def main(
     if not cookies:
         rprint(f"[yellow]No cookies found matching {search!r}.[/yellow]")
         raise typer.Exit()
+
+    if names:
+        name_filter = {n.strip() for n in names.split(",") if n.strip()}
+        cookies = [c for c in cookies if c.name in name_filter]
+        if not cookies:
+            rprint(f"[yellow]No cookies matched the --names filter {names!r}.[/yellow]")
+            raise typer.Exit()
 
     # --- Non-interactive: export all results directly ---
     if all_cookies:
